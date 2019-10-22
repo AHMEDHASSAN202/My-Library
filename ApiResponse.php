@@ -11,7 +11,8 @@ trait ApiResponse
 
     public function generateMsgError(int $statusCode)
     {
-        switch ($statusCode){
+        switch ($statusCode)
+        {
             case 401:
                     $msg = 'Unauthorized';
                 break;
