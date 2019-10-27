@@ -417,4 +417,26 @@ if (!function_exists('_addLogoToImage')) {
     }
 }
 
+if (!function_exists('_arrayGet')) {
+    function _arrayGet($array, $key, $default = null)
+    {
+        if (is_null($array)) return $default;
+        if (!is_array($array)) return $default;
+        if (!isset($array[$key])) return $default;
+        return $array[$key];
+    }
+}
+
+
+if (!function_exists('_objectGet')) {
+    function _objectGet($object, $key, $default)
+    {
+        if (is_null($object)) return $default;
+        if (!is_object($object)) return $default;
+        if (!property_exists($object, $key)) return $default;
+        return $object->{$key};
+    }
+}
+
+
 ?>
