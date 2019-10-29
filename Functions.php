@@ -357,7 +357,7 @@ if (!function_exists('_getLinksFromOnlinePage')) {
  * @return bool|null
  */
 if (!function_exists('_addLogoToImage')) {
-    function _addLogoToImage($path, $logo, $output_dir, $logo_width = 100, $logo_height = 100, $margin_right = 0, $margin_bottom = 0, $resize = false)
+    function _addLogoToImage($path, $logo, $output_dir, $logo_width = 100, $logo_height = 100, $margin_right = 0, $margin_bottom = 0, $new_if_exists = false, $resize = false)
     {
         //check if path not exists || not readable
         if (!file_exists($path) || !is_readable($path)) return null;
@@ -378,10 +378,17 @@ if (!function_exists('_addLogoToImage')) {
         //loop on all images
         foreach ($images as $img) {
             $extension = $img->getExtension() != 'jpg' ?: 'jpeg'; //get image extension
+            $new_image_path = $output_dir . DIRECTORY_SEPARATOR . $img->getFilename();
+            //check if this image is exist
+            if ($new_if_exists === false) {
+                if (file_exists($new_image_path)) {
+                    continue;
+                }
+            }
             $createResource = "imagecreatefrom$extension"; //create resource function name
             $outputImage = "image$extension"; //create output image function name
-            if (!function_exists($createResource)) break;
-            if (!function_exists($outputImage)) break;
+            if (!function_exists($createResource)) continue;
+            if (!function_exists($outputImage)) continue;
             $resource = $createResource($img); //create image resource
             //handle logo position
             if ($margin_right > 0) {
@@ -407,7 +414,7 @@ if (!function_exists('_addLogoToImage')) {
                 );
             //image output
             if (!is_dir($output_dir)) mkdir($output_dir);
-            $outputImage($resource, $output_dir . DIRECTORY_SEPARATOR . $img->getFilename());
+            $outputImage($resource, $new_image_path);
             //destroy resources
             imagedestroy($resource);
         }
@@ -417,6 +424,101 @@ if (!function_exists('_addLogoToImage')) {
     }
 }
 
+/**
+ * Generate Thumbnails
+ *
+ * @param $from
+ * @param $to
+ * @param null $width_thumbnail
+ * @param null $height_thumbnail
+ * @param null $ratio
+ * @return bool|null
+ */
+if (!function_exists('_makeThumbnails')) {
+    function _makeThumbnails($from, $to, $width_thumbnail = null, $height_thumbnail = null, $ratio = null, $new_if_exists = false)
+    {
+        //check if path not exists || not readable
+        if (!file_exists($from) || !is_readable($from)) return null;
+
+        //images on dir or one image path
+        $images = is_dir($from) ? new FilesystemIterator($from) : [new SplFileInfo($from)];
+
+        //check dist directory create it if not exists
+        if (!is_dir($to)) mkdir($to);
+
+        //handle images
+        foreach ($images as $image) {
+            $extension = $image->getExtension() != 'jpg' ?: 'jpeg'; //get image extension
+            $new_image_path = $to . DIRECTORY_SEPARATOR . $image->getFilename();
+            //check if this image is exist
+            if ($new_if_exists === false) {
+                if (file_exists($new_image_path)) {
+                    continue;
+                }
+            }
+            $createResource = "imagecreatefrom$extension"; //create resource function name
+            $outputImage = "image$extension"; //create output image function name
+            if (!function_exists($createResource)) continue;
+            if (!function_exists($outputImage)) continue;
+            $resource = $createResource($image); //create image resource
+
+            // get original image width and height
+            $width = imagesx($resource);
+            $height = imagesy($resource);
+
+            if ($ratio != null && is_numeric($ratio)) {
+                if ($ratio > 1) $ratio = $ratio / 100;
+                $height_thumbnail = $height * $ratio;
+                $width_thumbnail = $width * $ratio;
+            }
+
+            //get image type
+            $type = exif_imagetype($image->getRealPath());
+
+            // create duplicate image based on calculated target size
+            $thumbnail = imagecreatetruecolor($width_thumbnail, $height_thumbnail);
+
+            // set transparency options for GIFs and PNGs
+            if ($type == IMAGETYPE_GIF || $type == IMAGETYPE_PNG) {
+
+                // make image transparent
+                imagecolortransparent(
+                    $thumbnail,
+                    imagecolorallocate($thumbnail, 0, 0, 0)
+                );
+
+                // additional settings for PNGs
+                if ($type == IMAGETYPE_PNG) {
+                    imagealphablending($thumbnail, false);
+                    imagesavealpha($thumbnail, true);
+                }
+            }
+
+            // copy entire source image to duplicate image and resize
+            imagecopyresampled(
+                $thumbnail,
+                $resource,
+                0, 0, 0, 0,
+                $width_thumbnail, $height_thumbnail,
+                $width, $height
+            );
+
+            //save the duplicate version of the image to disk
+            $outputImage($thumbnail, $new_image_path);
+
+            //destroy resources
+            imagedestroy($resource);
+            imagedestroy($thumbnail);
+        }
+        return true;
+    }
+}
+
+/**
+ * Access key from Array
+ *
+ * @return null || value
+ */
 if (!function_exists('_arrayGet')) {
     function _arrayGet($array, $key, $default = null)
     {
@@ -427,7 +529,11 @@ if (!function_exists('_arrayGet')) {
     }
 }
 
-
+/**
+ * Access key from Object
+ *
+ * @return null || value
+ */
 if (!function_exists('_objectGet')) {
     function _objectGet($object, $key, $default)
     {
